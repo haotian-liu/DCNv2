@@ -80,6 +80,7 @@ class DCNv2(nn.Module):
         self.weight.data.uniform_(-stdv, stdv)
         self.bias.data.zero_()
 
+    @torch.jit.ignore
     def forward(self, input, offset, mask):
         assert 2 * self.deformable_groups * self.kernel_size[0] * self.kernel_size[1] == \
             offset.shape[1]
@@ -115,6 +116,7 @@ class DCN(DCNv2):
         self.conv_offset_mask.weight.data.zero_()
         self.conv_offset_mask.bias.data.zero_()
 
+    @torch.jit.ignore
     def forward(self, input):
         out = self.conv_offset_mask(input)
         o1, o2, mask = torch.chunk(out, 3, dim=1)
