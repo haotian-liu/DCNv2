@@ -130,6 +130,43 @@ class DCN(DCNv2):
                            self.deformable_groups)
 
 
+class PartialDCN(DCNv2):
+
+    def __init__(self, offset_in_channels, in_channels, out_channels,
+                 kernel_size, stride, padding,
+                 dilation=1, deformable_groups=1):
+        super(PartialDCN, self).__init__(in_channels, out_channels,
+                                  kernel_size, stride, padding, dilation, deformable_groups)
+
+        self.offset_in_channels = offset_in_channels
+
+        channels_ = self.deformable_groups * 3 * self.kernel_size[0] * self.kernel_size[1]
+        self.conv_offset_mask = nn.Conv2d(self.offset_in_channels,
+                                          channels_,
+                                          kernel_size=self.kernel_size,
+                                          stride=self.stride,
+                                          padding=self.padding,
+                                          bias=True)
+        self.init_offset()
+
+    def init_offset(self):
+        self.conv_offset_mask.weight.data.zero_()
+        self.conv_offset_mask.bias.data.zero_()
+
+    @torch.jit.ignore
+    def forward(self, input, input_offset):
+        out = self.conv_offset_mask(input_offset)
+        o1, o2, mask = torch.chunk(out, 3, dim=1)
+        offset = torch.cat((o1, o2), dim=1)
+        mask = torch.sigmoid(mask)
+        return dcn_v2_conv(input, offset, mask,
+                           self.weight, self.bias,
+                           self.stride,
+                           self.padding,
+                           self.dilation,
+                           self.deformable_groups)
+
+
 
 class _DCNv2Pooling(Function):
     @staticmethod
